@@ -32,6 +32,7 @@ true \
     && rm -f bin/*~ \
     && rm -f bin/libmbus.1 \
     && rm -f bin/mbus-serial-request-data \
+    && rm -f bin/mbus-serial-request-data-csv \
     && rm -f bin/mbus-serial-request-data-multi-reply \
     && rm -f bin/mbus-serial-scan \
     && rm -f bin/mbus-serial-scan-secondary \
@@ -39,6 +40,7 @@ true \
     && rm -f bin/mbus-serial-switch-baudrate \
     && rm -f bin/mbus-tcp-raw-send \
     && rm -f bin/mbus-tcp-request-data \
+    && rm -f bin/mbus-tcp-request-data-csv \
     && rm -f bin/mbus-tcp-request-data-multi-reply \
     && rm -f bin/mbus-tcp-scan \
     && rm -f bin/mbus-tcp-scan-secondary \
@@ -68,5 +70,3 @@ true \
     && rm -f -r debian/*.log \
     && rm -f -r debian/*.substvars \
     && rm -f -r debian/*.debhelper
-
-
