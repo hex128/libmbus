@@ -19,13 +19,11 @@ static int debug = 0;
 // init slave to get really the beginning of the records
 //
 static int
-init_slaves(mbus_handle *handle)
-{
+init_slaves(mbus_handle *handle) {
     if (debug)
         printf("%s: debug: sending init frame #1\n", __PRETTY_FUNCTION__);
 
-    if (mbus_send_ping_frame(handle, MBUS_ADDRESS_NETWORK_LAYER, 1) == -1)
-    {
+    if (mbus_send_ping_frame(handle, MBUS_ADDRESS_NETWORK_LAYER, 1) == -1) {
         return 0;
     }
 
@@ -36,8 +34,7 @@ init_slaves(mbus_handle *handle)
     if (debug)
         printf("%s: debug: sending init frame #2\n", __PRETTY_FUNCTION__);
 
-    if (mbus_send_ping_frame(handle, MBUS_ADDRESS_NETWORK_LAYER, 1) == -1)
-    {
+    if (mbus_send_ping_frame(handle, MBUS_ADDRESS_NETWORK_LAYER, 1) == -1) {
         return 0;
     }
 
@@ -48,84 +45,87 @@ init_slaves(mbus_handle *handle)
 // Scan for devices using secondary addressing.
 //------------------------------------------------------------------------------
 int
-main(int argc, char **argv)
-{
+main(int argc, char **argv) {
     mbus_frame reply;
     mbus_frame_data reply_data;
     mbus_handle *handle = NULL;
 
     char *device, *addr_str;
     int address;
-    long baudrate = 9600;
+    long baudrate = 2400;
     int addr_c;
     int addr_base;
 
-    memset((void *)&reply, 0, sizeof(mbus_frame));
-    memset((void *)&reply_data, 0, sizeof(mbus_frame_data));
+    memset((void *) &reply, 0, sizeof(mbus_frame));
+    memset((void *) &reply_data, 0, sizeof(mbus_frame_data));
 
-    if (argc >= 3)
-    {
+    if (argc >= 2) {
         int arg_pos = 1;
-        if (strcmp(argv[arg_pos], "-d")) {
+        if (strcmp(argv[arg_pos], "-d") == 0) {
             debug = 1;
             arg_pos++;
         }
-        if (strcmp(argv[arg_pos], "-b")) {
-            arg_pos++;
+        if (strcmp(argv[arg_pos], "-b") == 0) {
             arg_pos++;
             baudrate = atol(argv[arg_pos]);
             arg_pos++;
         }
-        device   = argv[arg_pos];
-        arg_pos++;
-        int base = arg_pos;
-        addr_c = argc - base;
-        addr_base = base;
-    }
-    else
-    {
+        device = argv[arg_pos];
+        if (argc - arg_pos == 1) {
+            addr_base = -1;
+            addr_c = 250;
+        } else {
+            arg_pos++;
+            int base = arg_pos;
+            addr_c = argc - base;
+            addr_base = base;
+        }
+    } else {
         fprintf(stderr, "usage: %s [-d] [-b BAUDRATE] device mbus-address\n", argv[0]);
         fprintf(stderr, "    optional flag -d for debug printout\n");
         fprintf(stderr, "    optional flag -b for selecting baudrate\n");
         return 0;
     }
 
-    if ((handle = mbus_context_serial(device)) == NULL)
-    {
-        fprintf(stderr, "Could not initialize M-Bus context: %s\n",  mbus_error_str());
+    if ((handle = mbus_context_serial(device)) == NULL) {
+        fprintf(stderr, "Could not initialize M-Bus context: %s\n", mbus_error_str());
         return 1;
     }
 
-    if (debug)
-    {
+    if (debug) {
         mbus_register_send_event(handle, &mbus_dump_send_event);
         mbus_register_recv_event(handle, &mbus_dump_recv_event);
     }
 
-    if (mbus_connect(handle) == -1)
-    {
-        fprintf(stderr,"Failed to setup connection to M-bus gateway\n");
+    if (mbus_connect(handle) == -1) {
+        fprintf(stderr, "Failed to setup connection to M-bus gateway\n");
         mbus_context_free(handle);
         return 1;
     }
 
-    if (mbus_serial_set_baudrate(handle, baudrate) == -1)
-    {
-        fprintf(stderr,"Failed to set baud rate.\n");
+    if (mbus_serial_set_baudrate(handle, baudrate) == -1) {
+        fprintf(stderr, "Failed to set baud rate.\n");
         mbus_disconnect(handle);
         mbus_context_free(handle);
         return 1;
     }
 
-    if (init_slaves(handle) == 0)
-    {
+    if (init_slaves(handle) == 0) {
         mbus_disconnect(handle);
         mbus_context_free(handle);
         return 1;
     }
+
+    char seq_addr_str[4];
 
     for (int i = 0; i < addr_c; i++) {
-        addr_str = argv[addr_base + i];
+        if (addr_base == -1) {
+            sprintf(seq_addr_str, "%d", i + 1);
+            addr_str = seq_addr_str;
+        } else {
+            addr_str = argv[addr_base + i];
+        }
+        fprintf(stderr, "Reading address %s\n", addr_str);
 
         if (mbus_is_secondary_address(addr_str)) {
             // secondary addressing
@@ -137,20 +137,17 @@ main(int argc, char **argv)
             if (ret == MBUS_PROBE_COLLISION) {
                 fprintf(stderr, "%s: Error: The address mask [%s] matches more than one device.\n", __PRETTY_FUNCTION__,
                         addr_str);
-                mbus_disconnect(handle);
-                mbus_context_free(handle);
-                return 1;
+                printf("%s,-\n", addr_str);
+                continue;
             } else if (ret == MBUS_PROBE_NOTHING) {
                 fprintf(stderr, "%s: Error: The selected secondary address does not match any device [%s].\n",
                         __PRETTY_FUNCTION__, addr_str);
-                mbus_disconnect(handle);
-                mbus_context_free(handle);
-                return 1;
+                printf("%s,-\n", addr_str);
+                continue;
             } else if (ret == MBUS_PROBE_ERROR) {
                 fprintf(stderr, "%s: Error: Failed to select secondary address [%s].\n", __PRETTY_FUNCTION__, addr_str);
-                mbus_disconnect(handle);
-                mbus_context_free(handle);
-                return 1;
+                printf("%s,-\n", addr_str);
+                continue;
             }
             // else MBUS_PROBE_SINGLE
 
@@ -162,39 +159,34 @@ main(int argc, char **argv)
 
         if (mbus_send_request_frame(handle, address) == -1) {
             fprintf(stderr, "Failed to send M-Bus request frame.\n");
-            mbus_disconnect(handle);
-            mbus_context_free(handle);
-            return 1;
+            printf("%s,-\n", addr_str);
+            continue;
         }
 
         if (mbus_recv_frame(handle, &reply) != MBUS_RECV_RESULT_OK) {
-            fprintf(stderr, "Failed to receive M-Bus response frame.\n");
-            return 1;
+            fprintf(stderr, "Failed to receive M-Bus response frame: %s\n", mbus_error_str());
+            printf("%s,-\n", addr_str);
+            continue;
         }
 
-        //
-        // dump hex data if debug is true
-        //
         if (debug) {
             mbus_frame_print(&reply);
         }
 
-        //
-        // parse data
-        //
         if (mbus_frame_data_parse(&reply, &reply_data) == -1) {
             fprintf(stderr, "M-bus data parse error: %s\n", mbus_error_str());
-            mbus_disconnect(handle);
-            mbus_context_free(handle);
-            return 1;
+            printf("%s,-\n", addr_str);
+            continue;
         }
 
-        if (reply_data.type == MBUS_DATA_TYPE_VARIABLE)
-        {
+        if (reply_data.type == MBUS_DATA_TYPE_VARIABLE) {
+            int r;
             mbus_data_record *record;
-            for (record = reply_data.data_var.record, i = 0; record; record = record->next, i++) {
+            for (record = reply_data.data_var.record, r = 0; record; record = record->next, r++) {
                 if (0x10 <= record->drh.vib.vif && record->drh.vib.vif <= 0x17) {
-                    printf("%s,%s\n", addr_str, mbus_data_record_value(record));
+                    if (mbus_data_record_storage_number(record) == 0) {
+                        printf("%s,%.3f\n", addr_str, strtod(mbus_data_record_value(record), NULL) / 1000);
+                    }
                 }
             }
         }
