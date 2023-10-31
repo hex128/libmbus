@@ -67,11 +67,22 @@ main(int argc, char **argv) {
 
     if (mbus_connect(handle) == -1) {
         fprintf(stderr, "Failed to setup connection to M-bus gateway\n");
+        mbus_context_free(handle);
         return 1;
     }
 
+    char seq_addr_str[4] = "1";
+
     for (int i = 0; i < addr_c; i++) {
-        addr_str = argv[addr_base + i];
+        if (addr_base == -1) {
+            sprintf(seq_addr_str, "%d", i + 1);
+            addr_str = seq_addr_str;
+        } else {
+            addr_str = argv[addr_base + i];
+        }
+        // addr_str = argv[addr_base + i];
+        fprintf(stderr, "Reading address %s\n", addr_str);
+
         if (mbus_is_secondary_address(addr_str)) {
             // secondary addressing
 
@@ -82,25 +93,21 @@ main(int argc, char **argv) {
             if (ret == MBUS_PROBE_COLLISION) {
                 fprintf(stderr, "%s: Error: The address mask [%s] matches more than one device.\n", __PRETTY_FUNCTION__,
                         addr_str);
-                printf("%s,-\n", addr_str);
+                printf("%s,-,-\n", addr_str);
                 continue;
             } else if (ret == MBUS_PROBE_NOTHING) {
                 fprintf(stderr, "%s: Error: The selected secondary address does not match any device [%s].\n",
                         __PRETTY_FUNCTION__, addr_str);
-                printf("%s,-\n", addr_str);
+                printf("%s,-,-\n", addr_str);
                 continue;
             } else if (ret == MBUS_PROBE_ERROR) {
                 fprintf(stderr, "%s: Error: Failed to select secondary address [%s].\n", __PRETTY_FUNCTION__, addr_str);
-                printf("%s,-\n", addr_str);
+                printf("%s,-,-\n", addr_str);
                 continue;
             }
             // else MBUS_PROBE_SINGLE
 
-            if (mbus_send_request_frame(handle, MBUS_ADDRESS_NETWORK_LAYER) == -1) {
-                fprintf(stderr, "Failed to send M-Bus request frame.\n");
-                printf("%s,-\n", addr_str);
-                continue;
-            }
+            address = MBUS_ADDRESS_NETWORK_LAYER;
         } else {
             // primary addressing
             address = atoi(addr_str);
@@ -108,25 +115,37 @@ main(int argc, char **argv) {
 
         if (mbus_send_request_frame(handle, address) == -1) {
             fprintf(stderr, "Failed to send M-Bus request frame.\n");
-            printf("%s,-\n", addr_str);
+            printf("%s,-,-\n", addr_str);
             continue;
         }
 
         if (mbus_recv_frame(handle, &reply) != MBUS_RECV_RESULT_OK) {
-            fprintf(stderr, "Failed to receive M-Bus response frame: %s\n", mbus_error_str());
-            printf("%s,-\n", addr_str);
+            fprintf(stderr, "Failed to receive M-Bus response frame.\n");
+            printf("%s,-,-\n", addr_str);
             continue;
         }
 
+        //
+        // dump hex data if debug is true
+        //
         if (debug) {
             mbus_frame_print(&reply);
         }
 
+        //
+        // parse data
+        //
         if (mbus_frame_data_parse(&reply, &reply_data) == -1) {
             fprintf(stderr, "M-bus data parse error: %s\n", mbus_error_str());
-            printf("%s,-\n", addr_str);
+            printf("%s,-,-\n", addr_str);
             continue;
         }
+
+        unsigned char id_bcd[4];
+        id_bcd[0] = reply.data[0];
+        id_bcd[1] = reply.data[1];
+        id_bcd[2] = reply.data[2];
+        id_bcd[3] = reply.data[3];
 
         if (reply_data.type == MBUS_DATA_TYPE_VARIABLE) {
             int r;
@@ -134,7 +153,12 @@ main(int argc, char **argv) {
             for (record = reply_data.data_var.record, r = 0; record; record = record->next, r++) {
                 if (0x10 <= record->drh.vib.vif && record->drh.vib.vif <= 0x17) {
                     if (mbus_data_record_storage_number(record) == 0) {
-                        printf("%s,%.3f\n", addr_str, strtod(mbus_data_record_value(record), NULL) / 1000);
+                        printf(
+                                "%s,%llX,%.3f\n",
+                                addr_str,
+                                mbus_data_bcd_decode_hex(id_bcd, 4),
+                                strtod(mbus_data_record_value(record), NULL) / 1000
+                        );
                     }
                 }
             }
