@@ -162,7 +162,8 @@ main(int argc, char **argv) {
                         serial = mbus_data_bcd_decode_hex(record->data, record->data_len);
                         break;
                     case 0x13:
-                        if (record->drh.dib.dif == 0x04) {
+                    case 0x14:
+                        if (record->drh.dib.dif == 0x04 || record->drh.dib.dif == 0x0C) {
                             volume = strtod(mbus_data_record_value(record), NULL) / 1000;
                         }
                         break;
