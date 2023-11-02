@@ -11,6 +11,7 @@
 #include <string.h>
 
 #include <stdio.h>
+#include <math.h>
 #include <mbus/mbus.h>
 
 static int debug = 0;
@@ -199,23 +200,27 @@ main(int argc, char **argv) {
                     timestamp = record->timestamp;
                 }
                 switch (record->drh.vib.vif) {
-                    case 0x6D:
+                    case 0x78: // Serial Number
+                        serial = mbus_data_bcd_decode_hex(record->data, record->data_len);
+                        break;
+                    case 0x6D: // Date & Time
                         if (record->drh.dib.dif == 0x04) {
                             mbus_data_tm_decode(&time, record->data, record->data_len);
                         }
-                        timestamp = record->timestamp;
                         break;
-                    case 0x78:
-                        serial = mbus_data_bcd_decode_hex(record->data, record->data_len);
-                        break;
-                    case 0x13:
-                        if (record->drh.dib.dif == 0x04 || record->drh.dib.dif == 0x0C) {
-                            volume = strtod(mbus_data_record_value(record), NULL) / 1000;
-                        }
-                        break;
-                    case 0x14:
-                        if (record->drh.dib.dif == 0x04 || record->drh.dib.dif == 0x0C) {
-                            volume = strtod(mbus_data_record_value(record), NULL) / 100;
+                    case 0x10: // Volume, m³ * 0.000001
+                    case 0x11: // Volume, m³ * 0.00001
+                    case 0x12: // Volume, m³ * 0.0001
+                    case 0x13: // Volume, m³ * 0.001
+                    case 0x14: // Volume, m³ * 0.01
+                    case 0x15: // Volume, m³ * 0.1
+                    case 0x16: // Volume, m³ * 1
+                    case 0x17: // Volume, m³ * 10
+                        if ((record->drh.dib.dif & 0x40) >> 6 == 0) { // Storage Number is 0 (actual value)
+                            volume = (
+                                    strtod(mbus_data_record_value(record), NULL) *
+                                    pow(10, record->drh.vib.vif - 0x16)
+                            );
                         }
                         break;
                     case 0xFD:
