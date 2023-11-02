@@ -185,28 +185,48 @@ main(int argc, char **argv) {
             continue;
         }
 
-        unsigned char id_bcd[4];
-        id_bcd[0] = reply.data[0];
-        id_bcd[1] = reply.data[1];
-        id_bcd[2] = reply.data[2];
-        id_bcd[3] = reply.data[3];
+        struct tm time;
+        double volume = 0;
+        time_t timestamp = 0;
+        long long serial = 0;
+        long long errors = 0;
 
         if (reply_data.type == MBUS_DATA_TYPE_VARIABLE) {
             int r;
             mbus_data_record *record;
             for (record = reply_data.data_var.record, r = 0; record; record = record->next, r++) {
-                if (0x10 <= record->drh.vib.vif && record->drh.vib.vif <= 0x17) {
-                    if (mbus_data_record_storage_number(record) == 0) {
-                        printf(
-                                "%s,%llX,%.3f\n",
-                                addr_str,
-                                mbus_data_bcd_decode_hex(id_bcd, 4),
-                                strtod(mbus_data_record_value(record), NULL) / 1000
-                        );
-                    }
+                switch (record->drh.vib.vif) {
+                    case 0x6D:
+                        if (record->drh.dib.dif == 0x04) {
+                            mbus_data_tm_decode(&time, record->data, record->data_len);
+                        }
+                        timestamp = record->timestamp;
+                        break;
+                    case 0x78:
+                        serial = mbus_data_bcd_decode_hex(record->data, record->data_len);
+                        break;
+                    case 0x13:
+                        if (record->drh.dib.dif == 0x04) {
+                            volume = strtod(mbus_data_record_value(record), NULL) / 1000;
+                        }
+                        break;
+                    case 0xFD:
+                        if (record->drh.vib.nvife == 1 && record->drh.vib.vife[0] == 0x17) {
+                            errors = mbus_data_bcd_decode_hex(record->data, record->data_len);
+                        }
+                        break;
                 }
             }
         }
+
+        printf(
+                "%s,%llX,%.3f,%06llX,%ld\n",
+                addr_str,
+                serial,
+                volume,
+                errors,
+                timestamp
+        );
 
         // manual free
         if (reply_data.data_var.record) {
