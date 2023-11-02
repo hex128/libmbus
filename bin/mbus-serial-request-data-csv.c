@@ -218,6 +218,9 @@ main(int argc, char **argv) {
                         break;
                 }
             }
+            if (timestamp == 0) {
+                timestamp = record->timestamp;
+            }
         }
 
         printf(

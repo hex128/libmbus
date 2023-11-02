@@ -156,7 +156,6 @@ main(int argc, char **argv) {
                         if (record->drh.dib.dif == 0x04) {
                             mbus_data_tm_decode(&time, record->data, record->data_len);
                         }
-                        timestamp = record->timestamp;
                         break;
                     case 0x78:
                         serial = mbus_data_bcd_decode_hex(record->data, record->data_len);
@@ -173,6 +172,9 @@ main(int argc, char **argv) {
                         }
                         break;
                 }
+            }
+            if (timestamp == 0) {
+                timestamp = record->timestamp;
             }
         }
 
