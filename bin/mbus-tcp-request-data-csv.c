@@ -151,6 +151,9 @@ main(int argc, char **argv) {
             int r;
             mbus_data_record *record;
             for (record = reply_data.data_var.record, r = 0; record; record = record->next, r++) {
+                if (timestamp == 0) {
+                    timestamp = record->timestamp;
+                }
                 switch (record->drh.vib.vif) {
                     case 0x6D:
                         if (record->drh.dib.dif == 0x04) {
@@ -172,9 +175,6 @@ main(int argc, char **argv) {
                         }
                         break;
                 }
-            }
-            if (timestamp == 0) {
-                timestamp = record->timestamp;
             }
         }
 
