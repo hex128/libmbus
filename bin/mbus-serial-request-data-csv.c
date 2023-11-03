@@ -130,6 +130,9 @@ main(int argc, char **argv) {
 
     while (i < addr_c) {
         try_count++;
+        if (try_count > 1) {
+            init_slaves(handle);
+        }
         if (try_count > max_tries) {
             printf("%s,,,,\n", addr_str);
             i++;
