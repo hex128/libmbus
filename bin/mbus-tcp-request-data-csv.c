@@ -161,7 +161,9 @@ main(int argc, char **argv) {
 
         struct tm time;
         double volume = 0;
-        time_t timestamp = 0;
+        time_t timestamp = reply.timestamp;
+        char *secondary_addr = mbus_frame_get_secondary_address(&reply);
+        long secondary_addr_id = mbus_data_bcd_decode_hex(reply_data.data_var.header.id_bcd, 4);
         long long serial = 0;
         long long errors = 0;
 
@@ -169,9 +171,6 @@ main(int argc, char **argv) {
             int r;
             mbus_data_record *record;
             for (record = reply_data.data_var.record, r = 0; record; record = record->next, r++) {
-                if (timestamp == 0) {
-                    timestamp = record->timestamp;
-                }
                 switch (record->drh.vib.vif) {
                     case 0x78: // Serial Number
                         serial = mbus_data_bcd_decode_hex(record->data, record->data_len);
@@ -206,8 +205,10 @@ main(int argc, char **argv) {
         }
 
         printf(
-                "%s,%llX,%.3f,%06llX,%ld\n",
+                "%s,%s,%lX,%llX,%.3f,%06llX,%ld\n",
                 addr_str,
+                secondary_addr,
+                secondary_addr_id,
                 serial,
                 volume,
                 errors,
