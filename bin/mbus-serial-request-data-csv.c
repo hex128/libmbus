@@ -125,7 +125,7 @@ main(int argc, char **argv) {
     }
 
     char seq_addr_str[4] = "1";
-    int i = 0;
+    uint8_t i = 0;
     int try_count = 0;
 
     while (i < addr_c) {
