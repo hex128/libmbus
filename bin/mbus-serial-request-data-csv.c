@@ -54,6 +54,7 @@ main(int argc, char **argv) {
     char *device, *addr_str;
     int address;
     long baudrate = 2400;
+    int max_tries = 1;
     int addr_c;
     int addr_base;
 
@@ -71,6 +72,11 @@ main(int argc, char **argv) {
             baudrate = atol(argv[arg_pos]);
             arg_pos++;
         }
+        if (strcmp(argv[arg_pos], "-r") == 0) {
+            arg_pos++;
+            max_tries = atoi(argv[arg_pos]);
+            arg_pos++;
+        }
         device = argv[arg_pos];
         if (argc - arg_pos == 1) {
             addr_base = -1;
@@ -82,9 +88,10 @@ main(int argc, char **argv) {
             addr_base = base;
         }
     } else {
-        fprintf(stderr, "usage: %s [-d] [-b BAUDRATE] device mbus-address\n", argv[0]);
+        fprintf(stderr, "usage: %s [-d] [-b BAUDRATE] [-r RETRIES] device mbus-address\n", argv[0]);
         fprintf(stderr, "    optional flag -d for debug printout\n");
         fprintf(stderr, "    optional flag -b for selecting baudrate\n");
+        fprintf(stderr, "    optional flag -r for retry count\n");
         return 0;
     }
 
@@ -118,8 +125,19 @@ main(int argc, char **argv) {
     }
 
     char seq_addr_str[4] = "1";
+    int i = 0;
+    int try_count = 0;
 
-    for (int i = 0; i < addr_c; i++) {
+    while (i < addr_c) {
+        try_count++;
+        if (try_count > max_tries) {
+            printf("%s,,,,\n", addr_str);
+            i++;
+            try_count = 0;
+        }
+        if (i >= addr_c) {
+            break;
+        }
         if (addr_base == -1) {
             sprintf(seq_addr_str, "%d", i + 1);
             addr_str = seq_addr_str;
@@ -138,16 +156,13 @@ main(int argc, char **argv) {
             if (ret == MBUS_PROBE_COLLISION) {
                 fprintf(stderr, "%s: Error: The address mask [%s] matches more than one device.\n", __PRETTY_FUNCTION__,
                         addr_str);
-                printf("%s,-,-\n", addr_str);
                 continue;
             } else if (ret == MBUS_PROBE_NOTHING) {
                 fprintf(stderr, "%s: Error: The selected secondary address does not match any device [%s].\n",
                         __PRETTY_FUNCTION__, addr_str);
-                printf("%s,-,-\n", addr_str);
                 continue;
             } else if (ret == MBUS_PROBE_ERROR) {
                 fprintf(stderr, "%s: Error: Failed to select secondary address [%s].\n", __PRETTY_FUNCTION__, addr_str);
-                printf("%s,-,-\n", addr_str);
                 continue;
             }
             // else MBUS_PROBE_SINGLE
@@ -160,13 +175,11 @@ main(int argc, char **argv) {
 
         if (mbus_send_request_frame(handle, address) == -1) {
             fprintf(stderr, "Failed to send M-Bus request frame.\n");
-            printf("%s,-,-\n", addr_str);
             continue;
         }
 
         if (mbus_recv_frame(handle, &reply) != MBUS_RECV_RESULT_OK) {
             fprintf(stderr, "Failed to receive M-Bus response frame.\n");
-            printf("%s,-,-\n", addr_str);
             continue;
         }
 
@@ -182,7 +195,6 @@ main(int argc, char **argv) {
         //
         if (mbus_frame_data_parse(&reply, &reply_data) == -1) {
             fprintf(stderr, "M-bus data parse error: %s\n", mbus_error_str());
-            printf("%s,-,-\n", addr_str);
             continue;
         }
 
@@ -245,6 +257,9 @@ main(int argc, char **argv) {
         if (reply_data.data_var.record) {
             mbus_data_record_free(reply_data.data_var.record); // free's up the whole list
         }
+
+        i++;
+        try_count = 0;
     }
 
     mbus_disconnect(handle);
