@@ -196,7 +196,10 @@ main(int argc, char **argv) {
                         }
                         break;
                     case 0xFD:
-                        if (record->drh.vib.nvife == 1 && record->drh.vib.vife[0] == 0x17) {
+                        // VIFE is 0x17 (Error Flags) & Storage Number is 0 (actual value)
+                        if (record->drh.vib.nvife == 1 &&
+                            record->drh.vib.vife[0] == 0x17 &&
+                            (record->drh.dib.dif & 0x40) >> 6 == 0) {
                             errors = mbus_data_bcd_decode_hex(record->data, record->data_len);
                         }
                         break;
