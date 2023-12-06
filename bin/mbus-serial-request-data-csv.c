@@ -130,16 +130,14 @@ main(int argc, char **argv) {
 
     while (i < addr_c) {
         try_count++;
-        if (try_count > 1) {
-            init_slaves(handle);
-        }
         if (try_count > max_tries) {
-            printf("%s,,,,\n", addr_str);
+            printf("%s,,,,,,\n", addr_str);
             i++;
             try_count = 0;
+            continue;
         }
-        if (i >= addr_c) {
-            break;
+        if (try_count > 1) {
+            init_slaves(handle);
         }
         if (addr_base == -1) {
             sprintf(seq_addr_str, "%d", i + 1);
@@ -147,7 +145,7 @@ main(int argc, char **argv) {
         } else {
             addr_str = argv[addr_base + i];
         }
-        fprintf(stderr, "Reading address %s\n", addr_str);
+        fprintf(stderr, "Reading address %s; try %d of %d\n", addr_str, try_count, max_tries);
 
         if (mbus_is_secondary_address(addr_str)) {
             // secondary addressing
