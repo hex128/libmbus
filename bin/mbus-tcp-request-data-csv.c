@@ -103,7 +103,7 @@ main(int argc, char **argv) {
         } else {
             addr_str = argv[addr_base + i];
         }
-        fprintf(stderr, "Reading address %s (%d of %d); try %d of %d\n", addr_str, i + 1, addr_c, try_count, max_tries);
+        fprintf(stderr, "Reading address %s (%d of %d); attempt %d of %d\n", addr_str, i + 1, addr_c, try_count, max_tries);
 
         if (mbus_is_secondary_address(addr_str)) {
             // secondary addressing
