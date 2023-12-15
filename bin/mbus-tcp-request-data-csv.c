@@ -186,7 +186,8 @@ main(int argc, char **argv) {
                     case 0x15: // Volume, m³ * 0.1
                     case 0x16: // Volume, m³ * 1
                     case 0x17: // Volume, m³ * 10
-                        if ((record->drh.dib.dif & 0x40) >> 6 == 0) { // Storage Number is 0 (actual value)
+                        // Storage Number is 0 (actual value)
+                        if ((record->drh.dib.dif & 0x40) >> 6 == 0 && record->drh.dib.ndife == 0) {
                             volume = (
                                     strtod(mbus_data_record_value(record), NULL) *
                                     pow(10, record->drh.vib.vif - 0x16)
