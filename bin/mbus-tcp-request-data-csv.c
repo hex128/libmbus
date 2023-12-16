@@ -93,6 +93,7 @@ main(int argc, char **argv) {
         try_count++;
         if (try_count > max_tries) {
             printf("%s,,,,,,\n", addr_str);
+            fflush(stdout);
             i++;
             try_count = 0;
             continue;
@@ -216,6 +217,7 @@ main(int argc, char **argv) {
                 errors,
                 timestamp
         );
+        fflush(stdout);
 
         // manual free
         if (reply_data.data_var.record) {

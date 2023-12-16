@@ -22,7 +22,7 @@ static int debug = 0;
 static int
 init_slaves(mbus_handle *handle) {
     if (debug)
-        printf("%s: debug: sending init frame #1\n", __PRETTY_FUNCTION__);
+        fprintf(stderr, "%s: debug: sending init frame #1\n", __PRETTY_FUNCTION__);
 
     if (mbus_send_ping_frame(handle, MBUS_ADDRESS_NETWORK_LAYER, 1) == -1) {
         return 0;
@@ -33,7 +33,7 @@ init_slaves(mbus_handle *handle) {
     //
 
     if (debug)
-        printf("%s: debug: sending init frame #2\n", __PRETTY_FUNCTION__);
+        fprintf(stderr, "%s: debug: sending init frame #2\n", __PRETTY_FUNCTION__);
 
     if (mbus_send_ping_frame(handle, MBUS_ADDRESS_NETWORK_LAYER, 1) == -1) {
         return 0;
@@ -132,6 +132,7 @@ main(int argc, char **argv) {
         try_count++;
         if (try_count > max_tries) {
             printf("%s,,,,,,\n", addr_str);
+            fflush(stdout);
             i++;
             try_count = 0;
             continue;
@@ -258,6 +259,7 @@ main(int argc, char **argv) {
                 errors,
                 timestamp
         );
+        fflush(stdout);
 
         // manual free
         if (reply_data.data_var.record) {
