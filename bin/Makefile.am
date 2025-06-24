@@ -14,11 +14,11 @@ AM_CPPFLAGS	= -I$(top_builddir) -I$(top_srcdir) -I$(top_srcdir)/src
 
 noinst_HEADERS			= 
 bin_PROGRAMS			= mbus-tcp-scan mbus-tcp-request-data mbus-tcp-request-data-csv mbus-tcp-request-data-multi-reply \
-                          mbus-tcp-select-secondary mbus-tcp-scan-secondary \
+                          mbus-tcp-select-secondary mbus-tcp-scan-secondary mbus-tcp-value \
                           mbus-serial-scan mbus-serial-request-data mbus-serial-request-data-csv mbus-serial-request-data-multi-reply \
                           mbus-serial-select-secondary mbus-serial-scan-secondary \
                           mbus-serial-switch-baudrate mbus-tcp-raw-send mbus-tcp-application-reset \
-                          mbus-serial-set-address
+                          mbus-serial-set-address mbus-serial-value
 
 # tcp
 mbus_tcp_scan_LDFLAGS	= -L$(top_builddir)/mbus
@@ -53,6 +53,10 @@ mbus_tcp_application_reset_LDFLAGS = -L$(top_builddir)/mbus
 mbus_tcp_application_reset_LDADD   = -lmbus -lm
 mbus_tcp_application_reset_SOURCES = mbus-tcp-application-reset.c
 
+mbus_tcp_value_LDFLAGS = -L$(top_builddir)/mbus
+mbus_tcp_value_LDADD	 = -lmbus -lm
+mbus_tcp_value_SOURCES = mbus-tcp-value.c
+
 # serial
 mbus_serial_scan_LDFLAGS	= -L$(top_builddir)/mbus
 mbus_serial_scan_LDADD		= -lmbus -lm
@@ -85,6 +89,10 @@ mbus_serial_switch_baudrate_SOURCES = mbus-serial-switch-baudrate.c
 mbus_serial_set_address_LDFLAGS = -L$(top_builddir)/mbus
 mbus_serial_set_address_LDADD   = -lmbus -lm
 mbus_serial_set_address_SOURCES = mbus-serial-set-address.c
+
+mbus_serial_value_LDFLAGS = -L$(top_builddir)/mbus
+mbus_serial_value_LDADD	 = -lmbus -lm
+mbus_serial_value_SOURCES = mbus-serial-value.c
 
 # man pages
 dist_man_MANS = libmbus.1 \
