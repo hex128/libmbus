@@ -38,6 +38,7 @@ true \
     && rm -f bin/mbus-serial-scan-secondary \
     && rm -f bin/mbus-serial-select-secondary \
     && rm -f bin/mbus-serial-switch-baudrate \
+    && rm -f bin/mbus-serial-value \
     && rm -f bin/mbus-tcp-raw-send \
     && rm -f bin/mbus-tcp-request-data \
     && rm -f bin/mbus-tcp-request-data-csv \
@@ -45,6 +46,7 @@ true \
     && rm -f bin/mbus-tcp-scan \
     && rm -f bin/mbus-tcp-scan-secondary \
     && rm -f bin/mbus-tcp-select-secondary \
+    && rm -f bin/mbus-tcp-value \
     && rm -f -r mbus/.deps \
     && rm -f -r mbus/.libs \
     && rm -f mbus/Makefile \

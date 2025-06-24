@@ -1,13 +1,3 @@
-//------------------------------------------------------------------------------
-// Copyright (C) 2011, Robert Johansson, Raditex AB
-// All rights reserved.
-//
-// rSCADA
-// http://www.rSCADA.se
-// info@rscada.se
-//
-//------------------------------------------------------------------------------
-
 #include <string.h>
 
 #include <stdio.h>
@@ -16,52 +6,98 @@
 
 static int debug = 0;
 
-//------------------------------------------------------------------------------
-// Execution starts here:
-//------------------------------------------------------------------------------
+static int
+usage (char *name, int rc) {
+    fprintf(stderr, "usage: %s [-d] [-r] HOST PORT [ADDRESS...]\n", name);
+    fprintf(stderr, "    optional flag -d for debug printout\n");
+    fprintf(stderr, "    optional flag -r for retry count\n");
+    return rc;
+}
+
+//
+// init slave to get really the beginning of the records
+//
+static int
+init_slaves(mbus_handle *handle) {
+    if (debug)
+        fprintf(stderr, "%s: debug: sending init frame #1\n", __PRETTY_FUNCTION__);
+
+    if (mbus_send_ping_frame(handle, MBUS_ADDRESS_NETWORK_LAYER, 1) == -1) {
+        return 0;
+    }
+
+    //
+    // resend SND_NKE, maybe the first get lost
+    //
+
+    if (debug)
+        fprintf(stderr, "%s: debug: sending init frame #2\n", __PRETTY_FUNCTION__);
+
+    if (mbus_send_ping_frame(handle, MBUS_ADDRESS_NETWORK_LAYER, 1) == -1) {
+        return 0;
+    }
+
+    return 1;
+}
+
 int
 main(int argc, char **argv) {
     mbus_frame reply;
     mbus_frame_data reply_data;
     mbus_handle *handle = NULL;
 
-    char *host, *addr_str;
+    char *host, *addr_str = "0";
     int address;
     long port;
     int max_tries = 1;
     int addr_c;
     int addr_base;
 
+    char seq_addr_str[4] = "0";
+    int i = 0;
+    int try_count = 0;
+
     memset((void *) &reply, 0, sizeof(mbus_frame));
     memset((void *) &reply_data, 0, sizeof(mbus_frame_data));
 
-    if (argc >= 4) {
+    if (argc >= 3) {
         int arg_pos = 1;
-        if (strcmp(argv[arg_pos], "-d") == 0) {
+        if (arg_pos < argc && strcmp(argv[arg_pos], "-h") == 0) {
+            return usage(argv[0], 0);
+        }
+        if (arg_pos < argc && strcmp(argv[arg_pos], "-d") == 0) {
             debug = 1;
             arg_pos++;
         }
-        if (strcmp(argv[arg_pos], "-r") == 0) {
+        if (arg_pos < argc && strcmp(argv[arg_pos], "-r") == 0) {
             arg_pos++;
+            if (arg_pos >= argc) {
+                return usage(argv[0], 1);
+            }
             max_tries = atoi(argv[arg_pos]);
             arg_pos++;
         }
-        host = argv[arg_pos];
-        arg_pos++;
-        port = atol(argv[arg_pos]);
-        if (argc - arg_pos == 1) {
+        if (arg_pos >= argc) {
+            return usage(argv[0], 1);
+        } else {
+            host = argv[arg_pos];
+            arg_pos++;
+        }
+        if (arg_pos >= argc) {
+            return usage(argv[0], 1);
+        } else {
+            port = atol(argv[arg_pos]);
+            arg_pos++;
+        }
+        if (arg_pos == argc) {
             addr_base = -1;
             addr_c = 250;
         } else {
-            arg_pos++;
-            int base = arg_pos;
-            addr_c = argc - base;
-            addr_base = base;
+            addr_c = argc - arg_pos;
+            addr_base = arg_pos;
         }
     } else {
-        fprintf(stderr, "usage: %s [-d] host port mbus-address\n", argv[0]);
-        fprintf(stderr, "    optional flag -d for debug printout\n");
-        return 0;
+        return usage(argv[0], 1);
     }
 
     if ((port < 0) || (port > 0xFFFF)) {
@@ -85,11 +121,18 @@ main(int argc, char **argv) {
         return 1;
     }
 
-    char seq_addr_str[4] = "1";
-    uint8_t i = 0;
-    int try_count = 0;
+    if (init_slaves(handle) == 0) {
+        fprintf(stderr, "Failed to initialize slaves\n");
+        mbus_disconnect(handle);
+        mbus_context_free(handle);
+        return 1;
+    }
 
     while (i < addr_c) {
+        if (try_count > 0) {
+            init_slaves(handle);
+            mbus_recv_frame(handle, &reply);
+        }
         try_count++;
         if (try_count > max_tries) {
             printf("%s,,,,,,\n", addr_str);
@@ -104,7 +147,9 @@ main(int argc, char **argv) {
         } else {
             addr_str = argv[addr_base + i];
         }
-        fprintf(stderr, "Reading address %s (%d of %d); attempt %d of %d\n", addr_str, i + 1, addr_c, try_count, max_tries);
+        fprintf(stderr,
+                "Reading address %s (%d of %d); attempt %d of %d\n",
+                addr_str, i + 1, addr_c, try_count, max_tries);
 
         if (mbus_is_secondary_address(addr_str)) {
             // secondary addressing

@@ -45,21 +45,24 @@ test/.deps
 *.lo
 .libs/
 bin/libmbus.1
-bin/libmbus.1
 bin/mbus-serial-request-data
+bin/mbus-serial-request-data-csv
 bin/mbus-serial-request-data-multi-reply
 bin/mbus-serial-scan
 bin/mbus-serial-scan-secondary
 bin/mbus-serial-select-secondary
 bin/mbus-serial-set-address
 bin/mbus-serial-switch-baudrate
+bin/mbus-serial-value
 bin/mbus-tcp-raw-send
 bin/mbus-tcp-request-data
+bin/mbus-tcp-request-data-csv
 bin/mbus-tcp-request-data-multi-reply
 bin/mbus-tcp-scan
 bin/mbus-tcp-scan-secondary
 bin/mbus-tcp-select-secondary
 bin/mbus-tcp-application-reset
+bin/mbus-tcp-value
 !*.c
 
 # test binaries
