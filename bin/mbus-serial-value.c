@@ -7,12 +7,40 @@
 static int debug = 0;
 
 static int
-usage(char *name, int rc) {
+usage(char *name, const int rc) {
     fprintf(stderr, "usage: %s [-d] [-b BAUDRATE] [-r RETRIES] DEVICE [ADDRESS...]\n", name);
     fprintf(stderr, "    optional flag -d for debug printout\n");
     fprintf(stderr, "    optional flag -b for selecting baudrate\n");
     fprintf(stderr, "    optional flag -r for retry count\n");
     return rc;
+}
+
+//
+// pad a secondary address if applicable
+//
+static void
+normalize_address(const char *addr_str, char *output_buffer) {
+    const int addr_num = atoi(addr_str);
+    if (addr_num >= 0 && addr_num <= 250) {
+        snprintf(output_buffer, 17, "%d", addr_num);
+    } else {
+        strncpy(output_buffer, addr_str, 16);
+        output_buffer[16] = '\0';
+
+        // Pad with leading zeros until the length is 8
+        while (strlen(output_buffer) < 8) {
+            memmove(output_buffer + 1, output_buffer, strlen(output_buffer) + 1);
+            output_buffer[0] = '0';
+        }
+
+        // Pad with 'F' until the length is 16
+        size_t len = strlen(output_buffer);
+        while (len < 16) {
+            output_buffer[len] = 'F';
+            len++;
+        }
+        output_buffer[len] = '\0';
+    }
 }
 
 //
@@ -42,12 +70,13 @@ init_slaves(mbus_handle *handle) {
 }
 
 int
-main(int argc, char **argv) {
+main(const int argc, char **argv) {
     mbus_frame reply;
     mbus_frame_data reply_data;
     mbus_handle *handle = NULL;
 
     char *device, *addr_str;
+    char normalized_address[17];
     int address;
     long baudrate = 2400;
     int max_tries = 1;
@@ -55,8 +84,8 @@ main(int argc, char **argv) {
 
     int rc = 0;
 
-    memset((void *) &reply, 0, sizeof(mbus_frame));
-    memset((void *) &reply_data, 0, sizeof(mbus_frame_data));
+    memset(&reply, 0, sizeof(mbus_frame));
+    memset(&reply_data, 0, sizeof(mbus_frame_data));
 
     if (argc >= 3) {
         int arg_pos = 1;
@@ -85,16 +114,14 @@ main(int argc, char **argv) {
         }
         if (arg_pos >= argc) {
             return usage(argv[0], 1);
-        } else {
-            device = argv[arg_pos];
-            arg_pos++;
         }
+        device = argv[arg_pos];
+        arg_pos++;
         if (arg_pos >= argc) {
             return usage(argv[0], 1);
-        } else {
-            addr_str = argv[arg_pos];
-            arg_pos++;
         }
+        addr_str = argv[arg_pos];
+        arg_pos++;
         if (arg_pos < argc) {
             new_value = strtod(argv[arg_pos], NULL);
         }
@@ -143,23 +170,25 @@ main(int argc, char **argv) {
 
         fprintf(stderr, "Reading address %s; attempt %d of %d\n", addr_str, try_count, max_tries);
 
-        if (mbus_is_secondary_address(addr_str)) {
+        normalize_address(addr_str, normalized_address);
+        if (mbus_is_secondary_address(normalized_address)) {
             // secondary addressing
 
-            int ret;
+            const int is_secondary = mbus_select_secondary_address(handle, normalized_address);
 
-            ret = mbus_select_secondary_address(handle, addr_str);
-
-            if (ret == MBUS_PROBE_COLLISION) {
-                fprintf(stderr, "%s: Error: The address mask [%s] matches more than one device.\n", __PRETTY_FUNCTION__,
-                        addr_str);
+            if (is_secondary == MBUS_PROBE_COLLISION) {
+                fprintf(stderr, "%s: Error: The address mask [%s] matches more than one device.\n",
+                        __PRETTY_FUNCTION__, normalized_address);
                 continue;
-            } else if (ret == MBUS_PROBE_NOTHING) {
+            }
+            if (is_secondary == MBUS_PROBE_NOTHING) {
                 fprintf(stderr, "%s: Error: The selected secondary address does not match any device [%s].\n",
-                        __PRETTY_FUNCTION__, addr_str);
+                        __PRETTY_FUNCTION__, normalized_address);
                 continue;
-            } else if (ret == MBUS_PROBE_ERROR) {
-                fprintf(stderr, "%s: Error: Failed to select secondary address [%s].\n", __PRETTY_FUNCTION__, addr_str);
+            }
+            if (is_secondary == MBUS_PROBE_ERROR) {
+                fprintf(stderr, "%s: Error: Failed to select secondary address [%s].\n",
+                        __PRETTY_FUNCTION__, normalized_address);
                 continue;
             }
             // else MBUS_PROBE_SINGLE
@@ -167,7 +196,7 @@ main(int argc, char **argv) {
             address = MBUS_ADDRESS_NETWORK_LAYER;
         } else {
             // primary addressing
-            address = atoi(addr_str);
+            address = atoi(normalized_address);
         }
 
         if (mbus_send_request_frame(handle, address) == -1) {
@@ -216,12 +245,12 @@ main(int argc, char **argv) {
                         if ((record->drh.dib.dif & 0x40) >> 6 == 0 && record->drh.dib.ndife == 0) {
                             dif = record->drh.dib.dif;
                             vif = record->drh.vib.vif;
-                            volume = (
-                                    strtod(mbus_data_record_value(record), NULL) *
-                                    pow(10, record->drh.vib.vif - 0x16)
-                            );
+                            volume = strtod(mbus_data_record_value(record), NULL) *
+                                pow(10, record->drh.vib.vif - 0x16);
                             data_len = record->data_len;
                         }
+                        break;
+                    default:
                         break;
                 }
             }
@@ -245,7 +274,7 @@ main(int argc, char **argv) {
             break;
         }
 
-        unsigned char *buffer = (unsigned char *) malloc(sizeof(dif) + sizeof(vif) + data_len);
+        unsigned char *buffer = malloc(sizeof(dif) + sizeof(vif) + data_len);
         if (buffer == NULL) {
             fprintf(stderr, "Failed to allocate memory for buffer\n");
             continue;
@@ -271,13 +300,13 @@ main(int argc, char **argv) {
         if (mbus_recv_frame(handle, &reply) == MBUS_RECV_RESULT_TIMEOUT) {
             fprintf(stderr, "No reply from device\n");
             continue;
-        } else if (mbus_frame_type(&reply) != MBUS_FRAME_TYPE_ACK) {
+        }
+        if (mbus_frame_type(&reply) != MBUS_FRAME_TYPE_ACK) {
             fprintf(stderr, "Unknown reply:\n");
             mbus_frame_print(&reply);
             continue;
-        } else {
-            fprintf(stderr, "Set value of %s to %.3f\n", addr_str, new_value);
         }
+        fprintf(stderr, "Set value of %s to %.3f\n", addr_str, new_value);
 
         rc = 0;
         break;
